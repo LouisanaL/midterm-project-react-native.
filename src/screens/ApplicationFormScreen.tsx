@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { Ionicons } from '@expo/vector-icons';
 import { RootStackParamList, ApplicationForm, ValidationErrors } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { validateApplicationForm, hasValidationErrors } from '../utils/validation';
@@ -87,6 +88,9 @@ const fieldStyles = StyleSheet.create({
 const ApplicationFormScreen: React.FC<Props> = ({ route, navigation }) => {
   const { job, fromSavedJobs } = route.params;
   const { colors, theme } = useTheme();
+  const { addAppliedJob, isJobApplied } = useAppliedJobs();
+
+  const alreadyApplied = isJobApplied(job.id);
 
   const [form, setForm] = useState<ApplicationForm>(INITIAL_FORM);
   const [errors, setErrors] = useState<ValidationErrors>({});
@@ -114,9 +118,9 @@ const ApplicationFormScreen: React.FC<Props> = ({ route, navigation }) => {
     setErrors((prev) => ({ ...prev, [field]: newErrors[field] }));
   };
 
-  const { addAppliedJob } = useAppliedJobs();
-
   const handleSubmit = () => {
+    if (alreadyApplied) return;
+
     const allTouched: Record<string, boolean> = {
       name: true, email: true, contactNumber: true, whyHireYou: true,
     };
@@ -125,10 +129,8 @@ const ApplicationFormScreen: React.FC<Props> = ({ route, navigation }) => {
     setErrors(validationErrors);
     if (hasValidationErrors(validationErrors)) return;
 
-    // record that user applied to this job, include submitted form
     addAppliedJob(job, form);
 
-    // Animate button press
     Animated.sequence([
       Animated.timing(scaleAnim, { toValue: 0.97, duration: 80, useNativeDriver: true }),
       Animated.timing(scaleAnim, { toValue: 1, duration: 80, useNativeDriver: true }),
@@ -159,13 +161,14 @@ const ApplicationFormScreen: React.FC<Props> = ({ route, navigation }) => {
     return [
       styles.input,
       {
-        backgroundColor: colors.inputBackground,
-        color: colors.text,
+        backgroundColor: alreadyApplied ? colors.inputBackground : colors.inputBackground,
+        color: alreadyApplied ? colors.textMuted : colors.text,
         borderColor: isError
           ? colors.error
           : isFocused
           ? colors.primary
           : colors.inputBorder,
+        opacity: alreadyApplied ? 0.6 : 1,
       },
     ];
   };
@@ -205,8 +208,8 @@ const ApplicationFormScreen: React.FC<Props> = ({ route, navigation }) => {
           keyboardShouldPersistTaps="handled"
         >
           {/* Job Summary Card */}
-          <View style={[styles.jobCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-            <View style={[styles.jobCardAccent, { backgroundColor: colors.primary }]} />
+          <View style={[styles.jobCard, { backgroundColor: colors.surface, borderColor: alreadyApplied ? colors.success + '60' : colors.border }]}>
+            <View style={[styles.jobCardAccent, { backgroundColor: alreadyApplied ? colors.success : colors.primary }]} />
             <View style={styles.jobCardInner}>
               <View style={[styles.jobLogoWrapper, { borderColor: colors.border, backgroundColor: colors.inputBackground }]}>
                 {!logoError && job.companyLogo ? (
@@ -225,42 +228,61 @@ const ApplicationFormScreen: React.FC<Props> = ({ route, navigation }) => {
                 )}
               </View>
               <View style={styles.jobInfo}>
-                <Text style={[styles.jobCardLabel, { color: colors.textMuted }]}>Applying for</Text>
+                <Text style={[styles.jobCardLabel, { color: colors.textMuted }]}>
+                  {alreadyApplied ? 'Already applied for' : 'Applying for'}
+                </Text>
                 <Text style={[styles.jobCardTitle, { color: colors.text }]} numberOfLines={2}>
                   {job.title}
                 </Text>
-                <Text style={[styles.jobCardMeta, { color: colors.primary }]}>
+                <Text style={[styles.jobCardMeta, { color: alreadyApplied ? colors.success : colors.primary }]}>
                   {job.company}  ·  {job.location}
                 </Text>
               </View>
             </View>
           </View>
 
-          {/* Progress indicator */}
-          <View style={styles.progressRow}>
-            <Text style={[styles.progressText, { color: colors.textMuted }]}>Your Information</Text>
-            <View style={styles.progressDots}>
-              {['name', 'email', 'contactNumber', 'whyHireYou'].map((f) => (
-                <View
-                  key={f}
-                  style={[
-                    styles.progressDot,
-                    {
-                      backgroundColor:
-                        touched[f] && !errors[f as keyof ValidationErrors]
-                          ? colors.success
-                          : touched[f] && errors[f as keyof ValidationErrors]
-                          ? colors.error
-                          : colors.border,
-                    },
-                  ]}
-                />
-              ))}
+          {/* Already applied notice */}
+          {alreadyApplied && (
+            <View style={[styles.alreadyAppliedBanner, { backgroundColor: colors.successLight, borderColor: colors.success + '40' }]}>
+              <Ionicons name="checkmark-circle" size={20} color={colors.success} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.alreadyAppliedTitle, { color: colors.success }]}>
+                  Application Already Submitted
+                </Text>
+                <Text style={[styles.alreadyAppliedSub, { color: colors.success + 'BB' }]}>
+                  You've already applied to this position. Check your application status in the Applied tab.
+                </Text>
+              </View>
             </View>
-          </View>
+          )}
+
+          {/* Progress indicator */}
+          {!alreadyApplied && (
+            <View style={styles.progressRow}>
+              <Text style={[styles.progressText, { color: colors.textMuted }]}>Your Information</Text>
+              <View style={styles.progressDots}>
+                {['name', 'email', 'contactNumber', 'whyHireYou'].map((f) => (
+                  <View
+                    key={f}
+                    style={[
+                      styles.progressDot,
+                      {
+                        backgroundColor:
+                          touched[f] && !errors[f as keyof ValidationErrors]
+                            ? colors.success
+                            : touched[f] && errors[f as keyof ValidationErrors]
+                            ? colors.error
+                            : colors.border,
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
 
           {/* Form Fields */}
-          <View style={styles.formSection}>
+          <View style={[styles.formSection, alreadyApplied && { opacity: 0.5, pointerEvents: 'none' }]}>
             <FieldWrapper
               label="Full Name"
               required
@@ -279,6 +301,7 @@ const ApplicationFormScreen: React.FC<Props> = ({ route, navigation }) => {
                 autoCapitalize="words"
                 returnKeyType="next"
                 maxLength={100}
+                editable={!alreadyApplied}
               />
             </FieldWrapper>
 
@@ -302,6 +325,7 @@ const ApplicationFormScreen: React.FC<Props> = ({ route, navigation }) => {
                 autoCorrect={false}
                 returnKeyType="next"
                 maxLength={254}
+                editable={!alreadyApplied}
               />
             </FieldWrapper>
 
@@ -323,6 +347,7 @@ const ApplicationFormScreen: React.FC<Props> = ({ route, navigation }) => {
                 keyboardType="phone-pad"
                 returnKeyType="next"
                 maxLength={20}
+                editable={!alreadyApplied}
               />
             </FieldWrapper>
 
@@ -346,34 +371,50 @@ const ApplicationFormScreen: React.FC<Props> = ({ route, navigation }) => {
                 numberOfLines={6}
                 maxLength={1000}
                 textAlignVertical="top"
+                editable={!alreadyApplied}
               />
             </FieldWrapper>
           </View>
 
-          {/* Submit */}
+          {/* Submit / Already Applied button */}
           <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
-            <TouchableOpacity
-              style={[
-                styles.submitBtn,
-                { backgroundColor: submitting ? colors.primaryLight : colors.primary },
-              ]}
-              onPress={handleSubmit}
-              activeOpacity={0.85}
-              disabled={submitting}
-            >
-              {submitting ? (
+            {alreadyApplied ? (
+              <TouchableOpacity
+                style={[styles.submitBtn, { backgroundColor: colors.successLight, borderWidth: 1, borderColor: colors.success + '50' }]}
+                onPress={() => navigation.goBack()}
+                activeOpacity={0.85}
+              >
                 <View style={styles.submitRow}>
-                  <Text style={[styles.submitText, { color: colors.primary }]}>Submitting...</Text>
+                  <Ionicons name="checkmark-circle" size={18} color={colors.success} />
+                  <Text style={[styles.submitText, { color: colors.success }]}>Already Applied — Go Back</Text>
                 </View>
-              ) : (
-                <Text style={styles.submitText}>Submit Application</Text>
-              )}
-            </TouchableOpacity>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[
+                  styles.submitBtn,
+                  { backgroundColor: submitting ? colors.primaryLight : colors.primary },
+                ]}
+                onPress={handleSubmit}
+                activeOpacity={0.85}
+                disabled={submitting}
+              >
+                {submitting ? (
+                  <View style={styles.submitRow}>
+                    <Text style={[styles.submitText, { color: colors.primary }]}>Submitting...</Text>
+                  </View>
+                ) : (
+                  <Text style={styles.submitText}>Submit Application</Text>
+                )}
+              </TouchableOpacity>
+            )}
           </Animated.View>
 
-          <Text style={[styles.disclaimer, { color: colors.textMuted }]}>
-            By submitting, you confirm that all information provided is accurate.
-          </Text>
+          {!alreadyApplied && (
+            <Text style={[styles.disclaimer, { color: colors.textMuted }]}>
+              By submitting, you confirm that all information provided is accurate.
+            </Text>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -467,7 +508,7 @@ const styles = StyleSheet.create({
   jobCard: {
     borderRadius: 16,
     borderWidth: 1,
-    marginBottom: 24,
+    marginBottom: 16,
     overflow: 'hidden',
     flexDirection: 'row',
   },
@@ -521,6 +562,25 @@ const styles = StyleSheet.create({
   jobCardMeta: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  alreadyAppliedBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginBottom: 20,
+  },
+  alreadyAppliedTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 3,
+  },
+  alreadyAppliedSub: {
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 17,
   },
   progressRow: {
     flexDirection: 'row',

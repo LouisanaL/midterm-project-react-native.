@@ -43,10 +43,11 @@ const JobCard: React.FC<JobCardProps> = ({
 }) => {
   const { colors } = useTheme();
   const { saveJob, removeJob, isJobSaved } = useSavedJobs();
-  const { removeAppliedJob } = useAppliedJobs();
+  const { removeAppliedJob, isJobApplied } = useAppliedJobs();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const saved = isJobSaved(job.id);
+  const applied = isJobApplied(job.id);
 
   const handleSave = () => {
     if (saved) return;
@@ -69,7 +70,7 @@ const JobCard: React.FC<JobCardProps> = ({
   };
 
   const handleApply = () => {
-    // fromSavedJobs no longer needed in ApplicationForm
+    if (applied) return;
     navigation.navigate('ApplicationForm', { job });
   };
 
@@ -113,7 +114,7 @@ const JobCard: React.FC<JobCardProps> = ({
         {
           backgroundColor: colors.card,
           shadowColor: colors.shadow,
-          borderColor: colors.border,
+          borderColor: applied ? colors.success + '60' : colors.border,
         },
       ]}
     >
@@ -185,6 +186,13 @@ const JobCard: React.FC<JobCardProps> = ({
         <View style={[styles.tag, { backgroundColor: colors.primaryLight }]}>
           <Text style={[styles.tagText, { color: colors.primary }]}>{job.category}</Text>
         </View>
+        {/* Applied badge */}
+        {applied && (
+          <View style={[styles.tag, { backgroundColor: colors.successLight, flexDirection: 'row', alignItems: 'center', gap: 3 }]}>
+            <Ionicons name="checkmark-circle" size={11} color={colors.success} />
+            <Text style={[styles.tagText, { color: colors.success }]}>Applied</Text>
+          </View>
+        )}
         {job.postedAt ? (
           <Text style={[styles.dateText, { color: colors.textMuted }]}>{timeAgo(job.postedAt)}</Text>
         ) : null}
@@ -217,11 +225,26 @@ const JobCard: React.FC<JobCardProps> = ({
         <Text style={[styles.viewDetail, { color: colors.primary }]}>View Details</Text>
         {!fromAppliedJobs && (
           <TouchableOpacity
-            style={[styles.applyBtn, { backgroundColor: colors.primary }]}
+            style={[
+              styles.applyBtn,
+              {
+                backgroundColor: applied ? colors.successLight : colors.primary,
+                borderWidth: applied ? 1 : 0,
+                borderColor: applied ? colors.success + '60' : 'transparent',
+              },
+            ]}
             onPress={handleApply}
-            activeOpacity={0.85}
+            activeOpacity={applied ? 1 : 0.85}
+            disabled={applied}
           >
-            <Text style={styles.applyBtnText}>Apply Now</Text>
+            {applied ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+                <Ionicons name="checkmark-circle" size={14} color={colors.success} />
+                <Text style={[styles.applyBtnText, { color: colors.success }]}>Applied</Text>
+              </View>
+            ) : (
+              <Text style={styles.applyBtnText}>Apply Now</Text>
+            )}
           </TouchableOpacity>
         )}
       </View>

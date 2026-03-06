@@ -17,6 +17,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { useTheme } from '../context/ThemeContext';
 import { useSavedJobs } from '../context/SavedJobsContext';
+import { useAppliedJobs } from '../context/AppliedJobsContext';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'JobDetail'>;
 
@@ -35,18 +36,17 @@ const JobDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { job, fromSavedJobs } = route.params;
   const { colors } = useTheme();
   const { saveJob, removeJob, isJobSaved } = useSavedJobs();
+  const { isJobApplied } = useAppliedJobs();
   const [bannerError, setBannerError] = useState(false);
   const [logoError, setLogoError] = useState(false);
 
   const saved = isJobSaved(job.id);
+  const applied = isJobApplied(job.id);
 
-  // remove emojis from description text
   const stripEmojis = (str: string): string => {
-    // simplified emoji filter (uses unicode flag to support >U+FFFF codepoints)
     return str.replace(/([\u{1F300}-\u{1F6FF}]|[\u{1F900}-\u{1F9FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}])/gu, '');
   };
 
-  // split description into bulletable lines
   const formatDescription = (text: string): string[] => {
     const cleaned = stripEmojis(text);
     let parts = cleaned.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
@@ -67,6 +67,7 @@ const JobDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   };
 
   const handleApply = () => {
+    if (applied) return;
     navigation.navigate('ApplicationForm', { job, fromSavedJobs });
   };
 
@@ -173,6 +174,16 @@ const JobDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={[styles.companyName, { color: colors.primary }]}>{job.company}</Text>
           <Text style={[styles.postedDate, { color: colors.textMuted }]}>{timeAgo(job.postedAt)}</Text>
 
+          {/* Applied banner */}
+          {applied && (
+            <View style={[styles.appliedBanner, { backgroundColor: colors.successLight, borderColor: colors.success + '40' }]}>
+              <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+              <Text style={[styles.appliedBannerText, { color: colors.success }]}>
+                You've already applied to this position.
+              </Text>
+            </View>
+          )}
+
           {/* Info Grid */}
           <View style={styles.chipsGrid}>
             <InfoChip label="Location" value={job.location} />
@@ -198,7 +209,6 @@ const JobDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           {/* Description */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Job Description</Text>
-            {/* bulletize and strip emojis from description */}
             {formatDescription(job.description).map((line, idx) => (
               <View key={idx} style={styles.bulletRow}>
                 <Text style={[styles.bullet, { color: colors.textSecondary }]}>•</Text>
@@ -225,11 +235,26 @@ const JobDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={[styles.ctaCompany, { color: colors.textMuted }]}>{job.company}</Text>
         </View>
         <TouchableOpacity
-          style={[styles.applyBtn, { backgroundColor: colors.primary }]}
+          style={[
+            styles.applyBtn,
+            {
+              backgroundColor: applied ? colors.successLight : colors.primary,
+              borderWidth: applied ? 1 : 0,
+              borderColor: applied ? colors.success + '50' : 'transparent',
+            },
+          ]}
           onPress={handleApply}
-          activeOpacity={0.85}
+          activeOpacity={applied ? 1 : 0.85}
+          disabled={applied}
         >
-          <Text style={styles.applyBtnText}>Apply Now</Text>
+          {applied ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+              <Text style={[styles.applyBtnText, { color: colors.success }]}>Applied</Text>
+            </View>
+          ) : (
+            <Text style={styles.applyBtnText}>Apply Now</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>
@@ -347,7 +372,21 @@ const styles = StyleSheet.create({
   postedDate: {
     fontSize: 12,
     fontWeight: '500',
-    marginBottom: 20,
+    marginBottom: 14,
+  },
+  appliedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginBottom: 16,
+  },
+  appliedBannerText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   chipsGrid: {
     flexDirection: 'row',
